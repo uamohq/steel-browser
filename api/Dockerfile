@@ -4,6 +4,14 @@ FROM node:${NODE_VERSION}-slim AS base
 
 WORKDIR /app
 
+# Define build-time ARGs
+ARG NODE_ENV
+ARG PROXY_URL
+ARG DEFAULT_HEADERS
+ARG CHROME_EXECUTABLE_PATH
+ARG LOG_LEVEL
+ARG HOST
+
 ENV NODE_ENV=${NODE_ENV} \
     PUPPETEER_CACHE_DIR=/app/.cache \
     DISPLAY=:10 \
@@ -19,12 +27,7 @@ ENV NODE_ENV=${NODE_ENV} \
 LABEL org.opencontainers.image.source="https://github.com/steel-dev/steel-browser"
 
 # Create .env file with environment variables
-RUN echo "NODE_ENV=${NODE_ENV}" > /app/.env && \
-    echo "PROXY_URL=${PROXY_URL}" >> /app/.env && \
-    echo "DEFAULT_HEADERS=${DEFAULT_HEADERS}" >> /app/.env && \
-    echo "CHROME_EXECUTABLE_PATH=${CHROME_EXECUTABLE_PATH}" >> /app/.env && \
-    echo "LOG_LEVEL=${LOG_LEVEL}" >> /app/.env && \
-    echo "HOST=${HOST}" >> /app/.env
+RUN printf "NODE_ENV=$NODE_ENV\nPROXY_URL=$PROXY_URL\nDEFAULT_HEADERS=$DEFAULT_HEADERS\nCHROME_EXECUTABLE_PATH=$CHROME_EXECUTABLE_PATH\nLOG_LEVEL=$LOG_LEVEL\nHOST=$HOST\n" > /app/.env
 
 # Install dependencies
 # Using --mount to speed up build with caching, see https://github.com/moby/buildkit/blob/master/frontend/dockerfile/docs/reference.md#run---mount
