@@ -9,6 +9,9 @@ ENV VITE_OPENAPI_URL=http://localhost:3000/documentation/json
 
 LABEL org.opencontainers.image.source="https://github.com/steel-dev/steel-browser"
 
+# Create a .env file dynamically from ENV variables
+RUN printf "VITE_API_URL=$VITE_API_URL\nVITE_WS_URL=$VITE_WS_URL\nVITE_OPENAPI_URL=$VITE_OPENAPI_URL\n" > /app/.env
+
 # Copy package.json and package-lock.json first
 COPY package.json package-lock.json ./
 
