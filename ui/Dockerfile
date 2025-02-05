@@ -3,7 +3,7 @@ FROM node:18
 WORKDIR /app
 
 # Set environment variables (these can be overridden at runtime)
-ENV VITE_API_URL=http://localhost:3000
+ENV VITE_API_URL=https://unraid-steel-api.mah.xyz
 ENV VITE_WS_URL=ws://localhost:3000
 ENV VITE_OPENAPI_URL=http://localhost:3000/documentation/json
 
