@@ -9,9 +9,6 @@ ENV VITE_OPENAPI_URL=http://localhost:3000/documentation/json
 
 LABEL org.opencontainers.image.source="https://github.com/steel-dev/steel-browser"
 
-# Create a .env file dynamically from ENV variables
-RUN printf "VITE_API_URL=$VITE_API_URL\nVITE_WS_URL=$VITE_WS_URL\nVITE_OPENAPI_URL=$VITE_OPENAPI_URL\n" > /app/.env
-
 # Copy package.json and package-lock.json first
 COPY package.json package-lock.json ./
 
@@ -28,5 +25,5 @@ RUN npm run build
 # Expose the port your web server runs on, assuming it's 5173
 EXPOSE 5173
 
-# Command to run your web server
-CMD ["npm", "run", "start"]
+# Create the .env file dynamically at runtime before starting the app
+CMD printf "VITE_API_URL=$VITE_API_URL\nVITE_WS_URL=$VITE_WS_URL\nVITE_OPENAPI_URL=$VITE_OPENAPI_URL\n" > /app/.env && npm run start
