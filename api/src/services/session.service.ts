@@ -24,9 +24,15 @@ const sessionStats = {
 
 const defaultSession = {
   status: "pending" as SessionDetails["status"],
-  websocketUrl: `ws://${env.DOMAIN ?? env.HOST}:${env.PORT}/`,
-  debugUrl: `http://${env.DOMAIN ?? env.HOST}:${env.PORT}/v1/devtools/inspector.html`,
-  sessionViewerUrl: `http://${env.DOMAIN ?? env.HOST}:${env.PORT}`,
+  websocketUrl: env.DOMAIN
+    ? `wss://${env.DOMAIN}/`
+    : `ws://${env.HOST}:${env.PORT}/`,
+  debugUrl: env.DOMAIN
+    ? `https://${env.DOMAIN}/v1/devtools/inspector.html`
+    : `http://${env.HOST}:${env.PORT}/v1/devtools/inspector.html`,
+  sessionViewerUrl: env.DOMAIN
+    ? `https://${env.DOMAIN}`
+    : `http://${env.HOST}:${env.PORT}`,
   userAgent: "",
   isSelenium: false,
   proxy: "",
@@ -132,9 +138,15 @@ export class SessionService {
       await this.cdpService.startNewSession(browserLauncherOptions);
 
       Object.assign(this.activeSession, {
-        websocketUrl: `ws://${env.DOMAIN ?? env.HOST}:${env.PORT}/`,
-        debugUrl: `http://${env.DOMAIN ?? env.HOST}:${env.PORT}/v1/devtools/inspector.html`,
-        sessionViewerUrl: `http://${env.DOMAIN ?? env.HOST}:${env.PORT}`,
+        websocketUrl: env.DOMAIN
+          ? `wss://${env.DOMAIN}/`
+          : `ws://${env.HOST}:${env.PORT}/`,
+        debugUrl: env.DOMAIN
+          ? `https://${env.DOMAIN}/v1/devtools/inspector.html`
+          : `http://${env.HOST}:${env.PORT}/v1/devtools/inspector.html`,
+        sessionViewerUrl: env.DOMAIN
+          ? `https://${env.DOMAIN}`
+          : `http://${env.HOST}:${env.PORT}`,
         userAgent: this.cdpService.getUserAgent(),
       });
     }
