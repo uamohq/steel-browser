@@ -73,7 +73,9 @@ export class CDPService extends EventEmitter {
   }
 
   public getDebuggerUrl() {
-    return `http://localhost:${env.CDP_REDIRECT_PORT}/devtools/devtools_app.html`;
+    return env.DOMAIN
+      ? `https://${env.DOMAIN}/devtools/devtools_app.html`
+      : `http://${env.HOST}:${env.CDP_REDIRECT_PORT}/devtools/devtools_app.html`;
   }
 
   public customEmit(event: EmitEvent, payload: any) {
