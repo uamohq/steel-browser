@@ -96,7 +96,9 @@ export class CDPService extends EventEmitter {
   }
 
   public getDebuggerWsUrl(pageId?: string) {
-    return `ws://localhost:${env.CDP_REDIRECT_PORT}/devtools/page/${pageId ?? this.getTargetId(this.primaryPage!)}`;
+    return env.DOMAIN
+      ? `wss://${env.DOMAIN}/devtools/page/${pageId ?? this.getTargetId(this.primaryPage!)}`
+      : `ws://${env.HOST}:${env.CDP_REDIRECT_PORT}/devtools/page/${pageId ?? this.getTargetId(this.primaryPage!)}`;
   }
 
   public async refreshPrimaryPage() {
