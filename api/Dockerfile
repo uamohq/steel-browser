@@ -1,43 +1,28 @@
 ARG NODE_VERSION=22.13.0
 
-# Base Stage
 FROM node:${NODE_VERSION}-slim AS base
 
 WORKDIR /app
 
-# Define build-time ARGs
-ARG NODE_ENV
-ARG PROXY_URL
-ARG DEFAULT_HEADERS
-ARG CHROME_EXECUTABLE_PATH
-ARG LOG_LEVEL
-ARG HOST
-
-ENV NODE_ENV=${NODE_ENV} \
+ENV NODE_ENV="production" \
     PUPPETEER_CACHE_DIR=/app/.cache \
-    DISPLAY=:99 \
+    DISPLAY=:10 \
     PATH="/usr/bin:/app/selenium/driver:${PATH}" \
     CHROME_BIN=/usr/bin/google-chrome-stable \
-    CHROME_PATH=/usr/bin/google-chrome-stable \
-    PROXY_URL=${PROXY_URL} \
-    DEFAULT_HEADERS=${DEFAULT_HEADERS} \
-    CHROME_EXECUTABLE_PATH=${CHROME_EXECUTABLE_PATH} \
-    LOG_LEVEL=${LOG_LEVEL} \
-    HOST=${HOST}
+    CHROME_PATH=/usr/bin/google-chrome-stable
 
 LABEL org.opencontainers.image.source="https://github.com/steel-dev/steel-browser"
 
-# Create .env file with environment variables
-RUN printf "NODE_ENV=$NODE_ENV\nPROXY_URL=$PROXY_URL\nDEFAULT_HEADERS=$DEFAULT_HEADERS\nCHROME_EXECUTABLE_PATH=$CHROME_EXECUTABLE_PATH\nLOG_LEVEL=$LOG_LEVEL\nHOST=$HOST\n" > /app/.env
-
-# Install build dependencies
+# Install dependencies
+# Using --mount to speed up build with caching, see https://github.com/moby/buildkit/blob/master/frontend/dockerfile/docs/reference.md#run---mount
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     --mount=type=tmpfs,target=/var/log/apt \
+    rm -f /etc/apt/apt.conf.d/docker-clean; \
+    echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache; \
     apt-get update -qq && \
     DEBIAN_FRONTEND=noninteractive apt-get -yq dist-upgrade
 
-# Build Stage
 FROM base AS build
 
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
@@ -48,11 +33,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       build-essential \
       pkg-config \
       python-is-python3 \
-      xvfb \
-      x11vnc \
-      websockify \
-      novnc \
-      nginx
+      xvfb
 
 COPY --link package-lock.json package.json ./
 
@@ -65,10 +46,14 @@ RUN npm run build
 RUN npm prune --omit=dev
 
 
-# Production Stage
-FROM base AS production
+FROM build AS patcher
+WORKDIR /app/patcher
+RUN npm i --include=dev
+RUN node ./scripts/patcher.js patch --packagePath /app/node_modules/puppeteer-core
 
-# Install runtime dependencies, including remote desktop-related tools
+FROM base AS production
+# Install dependencies
+# Using --mount to speed up build with caching, see https://github.com/moby/buildkit/blob/master/frontend/dockerfile/docs/reference.md#run---mount
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     --mount=type=tmpfs,target=/var/log/apt \
@@ -83,23 +68,23 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       fonts-kacst \
       fonts-freefont-ttf \
       libxss1 \
+      xvfb \
       curl \
       unzip \
       default-jre \
       dbus \
       dbus-x11 \
-      xvfb \
       x11vnc \
       websockify \
       novnc
-
-# Install CA certificates before curl commands
-RUN apt-get update && apt-get install -y ca-certificates
 
 # Install Chrome and ChromeDriver
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     --mount=type=tmpfs,target=/var/log/apt \
+    # wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
+    # && sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list' <- add this back in when supported \ 
+    # && apt-get update \
     curl -o chrome.deb https://mirror.cs.uchicago.edu/google-chrome/pool/main/g/google-chrome-stable/google-chrome-stable_128.0.6613.119-1_amd64.deb \
     && apt-get install -y ./chrome.deb \
     && rm chrome.deb \
@@ -112,7 +97,6 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 
 COPY --chmod=755 entrypoint.sh /app/entrypoint.sh
 
-# Expose necessary ports
 EXPOSE 3000 9223 5900 6080
 
 ENV HOST_IP=localhost \
