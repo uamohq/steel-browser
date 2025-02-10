@@ -1,6 +1,5 @@
-ARG NODE_VERSION=22.13.0
-
-FROM node:${NODE_VERSION} AS base
+# Base Stage
+FROM node:${NODE_VERSION}-slim AS base
 
 WORKDIR /app
 
@@ -29,13 +28,14 @@ LABEL org.opencontainers.image.source="https://github.com/steel-dev/steel-browse
 # Create .env file with environment variables
 RUN printf "NODE_ENV=$NODE_ENV\nPROXY_URL=$PROXY_URL\nDEFAULT_HEADERS=$DEFAULT_HEADERS\nCHROME_EXECUTABLE_PATH=$CHROME_EXECUTABLE_PATH\nLOG_LEVEL=$LOG_LEVEL\nHOST=$HOST\n" > /app/.env
 
-# Install dependencies
+# Install build dependencies
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     --mount=type=tmpfs,target=/var/log/apt \
     apt-get update -qq && \
     DEBIAN_FRONTEND=noninteractive apt-get -yq dist-upgrade
 
+# Build Stage
 FROM base AS build
 
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
@@ -63,13 +63,10 @@ RUN npm run build
 RUN npm prune --omit=dev
 
 
-FROM build AS patcher
-WORKDIR /app/patcher
-RUN npm i --include=dev
-RUN node ./scripts/patcher.js patch --packagePath /app/node_modules/puppeteer-core
-
+# Production Stage
 FROM base AS production
-# Install additional dependencies
+
+# Install runtime dependencies, including remote desktop-related tools
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     --mount=type=tmpfs,target=/var/log/apt \
@@ -84,12 +81,15 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       fonts-kacst \
       fonts-freefont-ttf \
       libxss1 \
-      xvfb \
       curl \
       unzip \
       default-jre \
       dbus \
-      dbus-x11
+      dbus-x11 \
+      xvfb \
+      x11vnc \
+      websockify \
+      novnc
 
 # Install CA certificates before curl commands
 RUN apt-get update && apt-get install -y ca-certificates
@@ -110,7 +110,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 
 COPY --chmod=755 entrypoint.sh /app/entrypoint.sh
 
-# Expose ports
+# Expose necessary ports
 EXPOSE 3000 9223 5900 6080
 
 ENV HOST_IP=localhost \
