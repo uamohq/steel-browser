@@ -1,6 +1,6 @@
 ARG NODE_VERSION=22.13.0
 
-FROM node:${NODE_VERSION}-slim AS base
+FROM node:${NODE_VERSION} AS base
 
 WORKDIR /app
 
@@ -14,7 +14,7 @@ ARG HOST
 
 ENV NODE_ENV=${NODE_ENV} \
     PUPPETEER_CACHE_DIR=/app/.cache \
-    DISPLAY=:10 \
+    DISPLAY=:99 \
     PATH="/usr/bin:/app/selenium/driver:${PATH}" \
     CHROME_BIN=/usr/bin/google-chrome-stable \
     CHROME_PATH=/usr/bin/google-chrome-stable \
@@ -30,12 +30,9 @@ LABEL org.opencontainers.image.source="https://github.com/steel-dev/steel-browse
 RUN printf "NODE_ENV=$NODE_ENV\nPROXY_URL=$PROXY_URL\nDEFAULT_HEADERS=$DEFAULT_HEADERS\nCHROME_EXECUTABLE_PATH=$CHROME_EXECUTABLE_PATH\nLOG_LEVEL=$LOG_LEVEL\nHOST=$HOST\n" > /app/.env
 
 # Install dependencies
-# Using --mount to speed up build with caching, see https://github.com/moby/buildkit/blob/master/frontend/dockerfile/docs/reference.md#run---mount
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     --mount=type=tmpfs,target=/var/log/apt \
-    rm -f /etc/apt/apt.conf.d/docker-clean; \
-    echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache; \
     apt-get update -qq && \
     DEBIAN_FRONTEND=noninteractive apt-get -yq dist-upgrade
 
@@ -49,7 +46,11 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       build-essential \
       pkg-config \
       python-is-python3 \
-      xvfb
+      xvfb \
+      x11vnc \
+      websockify \
+      novnc \
+      nginx
 
 COPY --link package-lock.json package.json ./
 
@@ -68,16 +69,13 @@ RUN npm i --include=dev
 RUN node ./scripts/patcher.js patch --packagePath /app/node_modules/puppeteer-core
 
 FROM base AS production
-# Install dependencies
-# Using --mount to speed up build with caching, see https://github.com/moby/buildkit/blob/master/frontend/dockerfile/docs/reference.md#run---mount
+# Install additional dependencies
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     --mount=type=tmpfs,target=/var/log/apt \
     apt-get update && \ 
     DEBIAN_FRONTEND=noninteractive apt-get install -yq --no-install-recommends \
       wget \
-      nginx \
-      gnupg \
       fonts-ipafont-gothic \
       fonts-wqy-zenhei \
       fonts-thai-tlwg \
@@ -87,17 +85,16 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       xvfb \
       curl \
       unzip \
-      default-jre \
       dbus \
       dbus-x11
+
+# Install CA certificates before curl commands
+RUN apt-get update && apt-get install -y ca-certificates
 
 # Install Chrome and ChromeDriver
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     --mount=type=tmpfs,target=/var/log/apt \
-    # wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
-    # && sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list' <- add this back in when supported \ 
-    # && apt-get update \
     curl -o chrome.deb https://mirror.cs.uchicago.edu/google-chrome/pool/main/g/google-chrome-stable/google-chrome-stable_128.0.6613.119-1_amd64.deb \
     && apt-get install -y ./chrome.deb \
     && rm chrome.deb \
@@ -110,7 +107,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 
 COPY --chmod=755 entrypoint.sh /app/entrypoint.sh
 
-EXPOSE 3000 9223
+# Expose ports
+EXPOSE 3000 9223 5900 6080
 
 ENV HOST_IP=localhost \
     DBUS_SESSION_BUS_ADDRESS=autolaunch:
