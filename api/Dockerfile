@@ -1,3 +1,5 @@
+ARG NODE_VERSION=22.13.0
+
 # Base Stage
 FROM node:${NODE_VERSION}-slim AS base
 
