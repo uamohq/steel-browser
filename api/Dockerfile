@@ -76,6 +76,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get update && \ 
     DEBIAN_FRONTEND=noninteractive apt-get install -yq --no-install-recommends \
       wget \
+      nginx \
+      gnupg \
       fonts-ipafont-gothic \
       fonts-wqy-zenhei \
       fonts-thai-tlwg \
@@ -85,6 +87,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       xvfb \
       curl \
       unzip \
+      default-jre \
       dbus \
       dbus-x11
 
